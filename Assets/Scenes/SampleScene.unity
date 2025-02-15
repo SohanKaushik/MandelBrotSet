@@ -151,9 +151,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _shader: {fileID: 7200000, guid: f2bf2047938a39449acac60863696d4e, type: 3}
-  MAX_ITERATIONS: 1000
+  MAX_ITERATIONS: 2000
   _zoom: 1
-  _offset: {x: -0.5, y: 0}
+  _speed: 1.2
+  _offset: {x: -0.7487051, y: -0.05944361}
   _width: 1000
   _height: 1000
 --- !u!4 &45453759

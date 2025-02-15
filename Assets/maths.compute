@@ -1,22 +1,26 @@
 #pragma kernel CSMain
 
 RWTexture2D<float4> result;
-int _Width;
-int _Height;
 
-float _Zoom;
-float2 _Offset;
-int MAX_ITERATIONS;
+
+cbuffer MandelBrotCB
+{
+    int _Width;
+    int _Height;
+    float _Zoom;
+    float2 _Offset;
+    int MAX_ITERATIONS;
+}
 
 int Mandelbrot(float a, float b)
 {
     // -> where z = 0
-    double zx = 0, zy = 0;
+    float zx = 0, zy = 0;
     int iteration = 0;
     
     while (zx * zx + zy * zy < 4 && iteration < MAX_ITERATIONS)
     {
-        double temp = zx * zx - zy * zy + a;
+        float temp = zx * zx - zy * zy + a;
         zy = 2 * zx * zy + b;
         zx = temp;
         
@@ -25,7 +29,8 @@ int Mandelbrot(float a, float b)
     return iteration;
 }
 
-[numthreads(16,16,1)]
+
+[numthreads(24, 24, 1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= _Width || id.y >= _Height) return;
@@ -41,7 +46,23 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     double b = yMin + (yMax - yMin) * id.y / _Height;
     
     int iteration = Mandelbrot(a, b);
+     // Map iteration to a color
+    float4 color;
+    if (iteration == MAX_ITERATIONS)
+    {
+        color = float4(0, 0, 0, 1.0); // Black for points in the set
+    }
+    else
+    {
+        // Map iteration to a color gradient
+        float t = (float) iteration / MAX_ITERATIONS;
+        color = float4(
+            sin(t * 3.14159 * 2) + 1, // Red
+            sin(t * 3.14159 * 2 + 2.0944) + 1, // Green
+            sin(t * 3.14159 * 2 + 4.18879) + 1, // Blue
+            1.0); // Alpha
+        color *= 0.5; // Adjust brightness
+    }
     
-    double t = (double) iteration / (double) MAX_ITERATIONS;
-    result[id.xy] = (iteration == MAX_ITERATIONS) ? float4(0, 0, 0, 1.0) : float4(1, 1, 1 , 1.0);
+    result[id.xy] = color;
 }

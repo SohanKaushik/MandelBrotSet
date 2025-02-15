@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System.Numerics;
 using Unity.Collections;
 using UnityEngine;
@@ -22,12 +23,15 @@ public class Fractal : MonoBehaviour
     private RenderTexture _texture;
     private int kernel;
 
+    private int tile_x, tile_y;
+
     void Awake()
     {
 
         _texture = new RenderTexture(_width, _height, 0);
         _texture.enableRandomWrite = true;
         _texture.Create();
+
 
         _shader.FindKernel("CSMain");
         _buffer = new ComputeBuffer(_width * _height, sizeof(int));
@@ -42,17 +46,19 @@ public class Fractal : MonoBehaviour
     }
     private void Update()
     {
+
         _shader.SetFloat("_Zoom", _zoom);
         _shader.SetVector("_Offset", _offset);
-        _shader.Dispatch(0, Mathf.CeilToInt(_width / 16.0f), Mathf.CeilToInt(_height / 16.0f), 1);
+        _shader.Dispatch(0, Mathf.CeilToInt(_width / 24.0f), Mathf.CeilToInt(_height / 24.0f), 1);
 
-        if (Input.GetKey(KeyCode.A)) { _offset.x -= _speed * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.D)) { _offset.x += _speed * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.W)) { _offset.y += _speed * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.S)) { _offset.y -= _speed * Time.deltaTime; }
 
-        if (Input.GetKey(KeyCode.E)) { _zoom += _speed * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.Q) && _zoom > 0.5) { _zoom -= _speed * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.A)) { _offset.x -= _speed / _zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.D)) { _offset.x += _speed / _zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.W)) { _offset.y += _speed / _zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.S)) { _offset.y -= _speed / _zoom * Time.deltaTime; }
+
+        if (Input.GetKey(KeyCode.E)) { _zoom += _speed * _zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.Q) && _zoom > 0.5) { _zoom -= _speed * _zoom * Time.deltaTime; }
     }
 
     private void OnDisable()
