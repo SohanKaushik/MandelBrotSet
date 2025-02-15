@@ -10,7 +10,8 @@ public class Fractal : MonoBehaviour
     private ComputeBuffer _buffer;
 
     [SerializeField] int MAX_ITERATIONS = 100;
-    [SerializeField] int _zoom;
+    [SerializeField] float _zoom;
+    [SerializeField] float _speed;
 
     [SerializeField] UnityEngine.Vector2 _offset;
 
@@ -43,7 +44,15 @@ public class Fractal : MonoBehaviour
     {
         _shader.SetFloat("_Zoom", _zoom);
         _shader.SetVector("_Offset", _offset);
-        _shader.Dispatch(0, Mathf.CeilToInt(_width / 8.0f), Mathf.CeilToInt(_height / 8.0f), 1);
+        _shader.Dispatch(0, Mathf.CeilToInt(_width / 16.0f), Mathf.CeilToInt(_height / 16.0f), 1);
+
+        if (Input.GetKey(KeyCode.A)) { _offset.x -= _speed * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.D)) { _offset.x += _speed * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.W)) { _offset.y += _speed * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.S)) { _offset.y -= _speed * Time.deltaTime; }
+
+        if (Input.GetKey(KeyCode.E)) { _zoom += _speed * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.Q) && _zoom > 0.5) { _zoom -= _speed * Time.deltaTime; }
     }
 
     private void OnDisable()
@@ -52,3 +61,4 @@ public class Fractal : MonoBehaviour
         _buffer = null;
     }
 }
+ 
