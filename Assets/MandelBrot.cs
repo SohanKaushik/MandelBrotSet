@@ -6,6 +6,9 @@ public class Fractal : MonoBehaviour
 {
     // -> Formula:  Z(n + 1) = Z^2n + c
 
+    [SerializeField] ComputeShader _shader;
+    private ComputeBuffer _buffer;
+
     [SerializeField] int MAX_ITERATIONS = 100;
     [SerializeField] int _zoom;
 
@@ -15,62 +18,37 @@ public class Fractal : MonoBehaviour
     [SerializeField] int _width = 100;
     [SerializeField] int _height = 100;
 
-    private Texture2D _texture;
+    private RenderTexture _texture;
+    private int kernel;
 
     void Awake()
     {
-        _texture = new Texture2D(_width, _height);
-        _texture.filterMode = FilterMode.Bilinear;
+
+        _texture = new RenderTexture(_width, _height, 0);
+        _texture.enableRandomWrite = true;
+        _texture.Create();
+
+        _shader.FindKernel("CSMain");
+        _buffer = new ComputeBuffer(_width * _height, sizeof(int));
+        _shader.SetInt("MAX_ITERATIONS", MAX_ITERATIONS);
+        _shader.SetInt("_Width", _width);
+        _shader.SetInt("_Height", _height);
+
+
+        _shader.SetTexture(0, "result", _texture);
         GetComponent<Renderer>().material.mainTexture = _texture;
+
     }
-
-    void Start() {
-
-        // -> Pixel Space Coordinate to Complex Plane
-        float aspect = (float)_width / (float)_height;
-
-        float xMin = (float)(-2.0 / _zoom) + _offset.x;
-        float xMax = (float)(+2.0 / _zoom) + _offset.x;
-        float yRange = 2.0f / _zoom;
-        float yMin = (float)(yRange / aspect) + _offset.y;
-        float yMax = (float)(-yRange / aspect) + _offset.y;
-
-        // MandelBrot Set
-        for (int x = 0; x < _width; x++)
-        {
-            for (int y = 0; y < _height; y++)
-            {
-                float a = xMin + (xMax - xMin) * x / _width;
-                float b = yMin + (yMax - yMin) * y / _height;
-
-                int iteration = MandelBrot(a, b, MAX_ITERATIONS);
-                _texture.SetPixel(x, y, GetColor(iteration));
-            }
-        }
-        _texture.Apply();
-    }
-
-    int MandelBrot(float a, float b, int MAX_ITERATIONS)
+    private void Update()
     {
-        // -> where z = 0
-        int iteration = 0;
-        float zx = 0, zy = 0;
-
-        while (zx * zx + zy * zy < 4 && iteration < MAX_ITERATIONS)
-        {
-            float temp = zx * zx - zy * zy + a;
-            zy = 2 * zx * zy + b;
-            zx = temp;
-
-            iteration++;
-        }
-        return iteration;
+        _shader.SetFloat("_Zoom", _zoom);
+        _shader.SetVector("_Offset", _offset);
+        _shader.Dispatch(0, Mathf.CeilToInt(_width / 8.0f), Mathf.CeilToInt(_height / 8.0f), 1);
     }
 
-    Color GetColor(int iteration)
+    private void OnDisable()
     {
-        if (iteration == MAX_ITERATIONS) return Color.black;
-        float t = iteration / MAX_ITERATIONS;
-        return Color.Lerp(Color.white, Color.red, t);
+        _buffer.Release();
+        _buffer = null;
     }
 }
