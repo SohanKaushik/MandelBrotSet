@@ -1,6 +1,3 @@
-using JetBrains.Annotations;
-using System.Numerics;
-using Unity.Collections;
 using UnityEngine;
 
 public class Fractal : MonoBehaviour
@@ -10,8 +7,8 @@ public class Fractal : MonoBehaviour
     [SerializeField] ComputeShader _shader;
     private ComputeBuffer _buffer;
 
-    [SerializeField] int MAX_ITERATIONS = 100;
-    [SerializeField] float _zoom;
+    private int MAX_ITERATIONS = 100;
+    [SerializeField] double _zoom;
     [SerializeField] float _speed;
 
     [SerializeField] UnityEngine.Vector2 _offset;
@@ -35,36 +32,37 @@ public class Fractal : MonoBehaviour
 
         _shader.FindKernel("CSMain");
         _buffer = new ComputeBuffer(_width * _height, sizeof(int));
-        _shader.SetInt("MAX_ITERATIONS", MAX_ITERATIONS);
         _shader.SetInt("_Width", _width);
         _shader.SetInt("_Height", _height);
 
 
         _shader.SetTexture(0, "result", _texture);
         GetComponent<Renderer>().material.mainTexture = _texture;
-
     }
+
     private void Update()
     {
 
-        _shader.SetFloat("_Zoom", _zoom);
+        _shader.SetFloat("_Zoom", (float)_zoom);
         _shader.SetVector("_Offset", _offset);
+        _shader.SetInt("MAX_ITERATIONS", MAX_ITERATIONS);
+
         _shader.Dispatch(0, Mathf.CeilToInt(_width / 24.0f), Mathf.CeilToInt(_height / 24.0f), 1);
 
 
-        if (Input.GetKey(KeyCode.A)) { _offset.x -= _speed / _zoom * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.D)) { _offset.x += _speed / _zoom * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.W)) { _offset.y += _speed / _zoom * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.S)) { _offset.y -= _speed / _zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.A)) { _offset.x -= _speed / (float)_zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.D)) { _offset.x += _speed / (float)_zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.W)) { _offset.y += _speed / (float)_zoom * Time.deltaTime; }
+        if (Input.GetKey(KeyCode.S)) { _offset.y -= _speed / (float)_zoom * Time.deltaTime; }
+            
+        if (Input.GetKey(KeyCode.E)) { _zoom += _speed * _zoom * Time.deltaTime; MAX_ITERATIONS += 2; }
+        if (Input.GetKey(KeyCode.Q) && _zoom > 0.5) { _zoom -= _speed * _zoom * Time.deltaTime; MAX_ITERATIONS -= 2; }
 
-        if (Input.GetKey(KeyCode.E)) { _zoom += _speed * _zoom * Time.deltaTime; }
-        if (Input.GetKey(KeyCode.Q) && _zoom > 0.5) { _zoom -= _speed * _zoom * Time.deltaTime; }
+        
     }
 
     private void OnDisable()
     {
-        _buffer.Release();
-        _buffer = null;
+        _buffer.Dispose();
     }
 }
- 
