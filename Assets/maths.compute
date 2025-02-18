@@ -12,15 +12,15 @@ cbuffer MandelBrotCB
     int MAX_ITERATIONS;
 }
 
-float Mandelbrot(float a, float b)
+int Mandelbrot(float a, float b)
 {
     // -> where z = 0
-    float zx = 0, zy = 0;
+    double zx = 0, zy = 0;
     int iteration = 0;
     
     while (zx * zx + zy * zy < 4 && iteration < MAX_ITERATIONS)
     {
-        float temp = zx * zx - zy * zy + a;
+        double temp = zx * zx - zy * zy + a;
         zy = 2 * zx * zy + b;
         zx = temp;
         
@@ -30,7 +30,7 @@ float Mandelbrot(float a, float b)
 }
 
 
-[numthreads(24, 24, 1)]
+[numthreads(32, 32, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= _Width || id.y >= _Height)
@@ -48,33 +48,23 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     
     int iteration = Mandelbrot(a, b);
     float t = iteration / (float) MAX_ITERATIONS;
-    t = sqrt(t); // Gamma transition for smoother gradients
-
-// Initial colors
+    t = sqrt(t);
+    
+    // color is from chatgpt cuz i know shit
     float3 initialColor = float3(
     0.8 + 0.2 * sin(6.2831 * (t + 0.0)),
     0.7 + 0.3 * sin(6.2831 * (t + 0.1)),
-    0.6 + 0.4 * sin(6.2831 * (t + 0.2))
-);
+    0.6 + 0.4 * sin(6.2831 * (t + 0.2)));
 
-// Deep zoom colors (the ones you liked)
     float3 deepZoomColor = float3(
     0.5 + 0.5 * sin(6.2831 * (t + 0.0)) + 0.1 * sin(12.5661 * (t + 0.2)),
     0.5 + 0.5 * sin(6.2831 * (t + 0.1)) + 0.1 * sin(18.8495 * (t + 0.3)),
-    0.5 + 0.5 * sin(6.2831 * (t + 0.2)) + 0.1 * sin(25.1327 * (t + 0.4))
-);
+    0.5 + 0.5 * sin(6.2831 * (t + 0.2)) + 0.1 * sin(25.1327 * (t + 0.4)));
 
-// Transition between initial and deep zoom colors
     float transition = clamp(iteration / (MAX_ITERATIONS * 0.5), 0.0, 1.0);
     float3 color = lerp(initialColor, deepZoomColor, transition);
-
-// Add some noise for a more organic look
     float noise = frac(sin(iteration * 0.1 + id.x * 10.0 + id.y * 20.0) * 43758.5453);
-    color = color * (1.0 + noise * 0.1); // Modulate color by noise
-
-// Slight glow effect
+    color = color * (1.0 + noise * 0.1); 
     color = color * pow(color, 2.0);
-
-// Dark background
     result[id.xy] = float4(color, 1.0) * (iteration < MAX_ITERATIONS ? 1.0 : 0.0);
 }

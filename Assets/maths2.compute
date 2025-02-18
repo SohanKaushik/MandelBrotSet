@@ -1,0 +1,90 @@
+#pragma kernel CSMain
+
+RWTexture2D<float4> result;
+
+// Mandelbrot parameters
+cbuffer MandelBrotCB
+{
+    int _Width;
+    int _Height;
+    float _Zoom;
+    float2 _Offset;
+    int MAX_ITERATIONS;
+}
+
+StructuredBuffer<float2> z_ref; // Reference orbit (passed from CPU)
+
+// Complex multiplication helper function
+float2 cmul(float2 a, float2 b)
+{
+    return float2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+// Perturbation-based Mandelbrot calculation
+int MandelbrotPerturbation(float2 c0, float2 delta_c, int max_iterations)
+{
+    float2 delta_z = float2(0, 0);
+
+    for (int n = 0; n < max_iterations; n++)
+    {
+        if (n >= 1000)
+            break; // MAX_REF_ITERATIONS
+
+        // Perturbation iteration
+        float2 z_n = z_ref[n];
+        delta_z = cmul(z_n * 2.0, delta_z) + cmul(delta_z, delta_z) + delta_c;
+
+        // Escape condition (faster squared norm check)
+        if (dot(z_n + delta_z, z_n + delta_z) > 4.0)
+            return n;
+    }
+    return max_iterations;
+}
+
+[numthreads(16, 16, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _Width || id.y >= _Height)
+        return;
+
+    // Compute complex plane coordinates
+    float aspect = (float) _Width / (float) _Height;
+    float xMin = _Offset.x - 2.0 / _Zoom;
+    float xMax = _Offset.x + 2.0 / _Zoom;
+    float yMin = _Offset.y - 2.0 / (_Zoom * aspect);
+    float yMax = _Offset.y + 2.0 / (_Zoom * aspect);
+
+    float dx = (xMax - xMin) / _Width;
+    float dy = (yMax - yMin) / _Height;
+    
+    float2 c0 = float2(_Offset.x, _Offset.y);
+    float2 delta_c = float2(xMin + dx * id.x, yMin + dy * id.y) - c0;
+
+    // Compute the Mandelbrot set using perturbation theory
+    int iteration = MandelbrotPerturbation(c0, delta_c, MAX_ITERATIONS);
+    float t = sqrt(iteration / (float) MAX_ITERATIONS);
+
+    // Color mapping
+    float3 initialColor = float3(
+        0.8 + 0.2 * sin(6.2831 * (t + 0.0)),
+        0.7 + 0.3 * sin(6.2831 * (t + 0.1)),
+        0.6 + 0.4 * sin(6.2831 * (t + 0.2))
+    );
+
+    float3 deepZoomColor = float3(
+        0.5 + 0.5 * sin(6.2831 * (t + 0.0)) + 0.1 * sin(12.5661 * (t + 0.2)),
+        0.5 + 0.5 * sin(6.2831 * (t + 0.1)) + 0.1 * sin(18.8495 * (t + 0.3)),
+        0.5 + 0.5 * sin(6.2831 * (t + 0.2)) + 0.1 * sin(25.1327 * (t + 0.4))
+    );
+
+    float transition = clamp(iteration / (MAX_ITERATIONS * 0.5), 0.0, 1.0);
+    float3 color = lerp(initialColor, deepZoomColor, transition);
+
+    // Add some noise for variation
+    float noise = frac(sin(iteration * 0.1 + id.x * 10.0 + id.y * 20.0) * 43758.5453);
+    color = color * (1.0 + noise * 0.1);
+    color = color * color; // Glow effect
+
+    // Write the result to the output texture
+    result[id.xy] = float4(color, 1.0) * (iteration < MAX_ITERATIONS ? 1.0 : 0.0);
+}
